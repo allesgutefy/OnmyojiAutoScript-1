@@ -60,6 +60,8 @@ class RealmRaidAssets:
 	I_FROG_RAID = RuleImage(roi_front=(511,301,282,100), roi_back=(511,301,282,100), threshold=0.8, method="Template matching", file="./tasks/RealmRaid/res/res_frog_raid.png")
 	# 个人 
 	I_RR_PERSON = RuleImage(roi_front=(1203,236,56,100), roi_back=(1203,236,56,155), threshold=0.8, method="Template matching", file="./tasks/RealmRaid/res/res_rr_person.png")
+	# 三胜宝箱福袋弹窗（点击屏幕继续） 
+	I_RR_CHEST = RuleImage(roi_front=(535,465,180,165), roi_back=(455,405,360,250), threshold=0.8, method="Template matching", file="./tasks/RealmRaid/res/res_rr_chest.png")
 
 
 	# Ocr Rule Assets

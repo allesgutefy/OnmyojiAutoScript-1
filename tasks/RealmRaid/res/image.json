@@ -169,5 +169,14 @@
     "method": "Template matching",
     "threshold": 0.8,
     "description": "description"
+  },
+  {
+    "itemName": "rr_chest",
+    "imageName": "res_rr_chest.png",
+    "roiFront": "535,465,180,165",
+    "roiBack": "455,405,360,250",
+    "method": "Template matching",
+    "threshold": 0.8,
+    "description": "三胜宝箱福袋弹窗"
   }
 ]

@@ -113,6 +113,8 @@ class BondlingFairylandAssets:
 	I_BATTLE_SUCCESS = RuleImage(roi_front=(651,203,70,81), roi_back=(651,203,70,81), threshold=0.8, method="Template matching", file="./tasks/BondlingFairyland/capture/battle_success.png")
 	# 再次结契 
 	I_CAP_AGAIN = RuleImage(roi_front=(730,598,113,53), roi_back=(693,572,176,99), threshold=0.8, method="Template matching", file="./tasks/BondlingFairyland/capture/capture_cap_again.png")
+	# 队员端结算标题「结束」（原为胜利/失败，点击位置不变） 
+	I_BATTLE_END = RuleImage(roi_front=(640,55,345,180), roi_back=(555,10,520,290), threshold=0.8, method="Template matching", file="./tasks/BondlingFairyland/capture/battle_end.png")
 
 
 	# Image Rule Assets
