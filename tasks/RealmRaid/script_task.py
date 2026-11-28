@@ -16,7 +16,7 @@ from tasks.Component.GeneralBattle.battle_wait import battle_wait_strategy
 
 
 from module.logger import logger
-from module.exception import TaskEnd
+from module.exception import TaskEnd, GameStuckError
 from module.atom.image_grid import ImageGrid
 from module.atom.image import RuleImage
 from module.atom.click import RuleClick
@@ -33,7 +33,7 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, RealmRaidAssets):
         如果没有票了，那么就返回False
         :return:
         """
-        self.wait_until_appear(self.I_BACK_RED)
+        self.wait_until_appear(self.I_BACK_RED, wait_time=30)
         self.screenshot()
         cu, res, total = self.O_NUMBER.ocr(self.device.image)
         if cu == 0 and cu + res == total:
@@ -113,13 +113,17 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, RealmRaidAssets):
                 return False
             self.medal_fire()
             self.run_general_battle(config.general_battle_config)
-            self.wait_until_appear(self.I_BACK_RED)
+            self.wait_until_appear(self.I_BACK_RED, wait_time=30)
 
         return True
 
     # ------------------------------------------------------------------------------------------------------------------
     def run_2(self):
         con = self.config.realm_raid
+        # 三胜宝箱弹窗（点击屏幕继续）可能残留：注册为未知页关闭动作并优先点掉，
+        # 防止遮挡页面识别导致启动导航死循环
+        self.navigator.add_unknown_closer(self.I_RR_CHEST)
+        self.close_chest_reward()
         if con.switch_soul_config.enable:
             self.goto_page(page_shikigami_records)
             self.run_switch_soul(con.switch_soul_config.switch_group_team)
@@ -157,6 +161,11 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, RealmRaidAssets):
             if self.appear(self.I_UI_CONFIRM):
                 logger.info("Pop-up detected: Refresh Confirmation. Clicking Confirm.")
                 self.appear_then_click(self.I_UI_CONFIRM, interval=1.5)
+                continue
+            # 三胜宝箱奖励弹窗（点击屏幕继续）：点掉，防止遮挡勋章导致点不到下一个
+            if self.appear(self.I_RR_CHEST):
+                logger.info("Pop-up detected: chest reward. Clicking to close.")
+                self.appear_then_click(self.I_RR_CHEST, interval=1.5)
                 continue
             # 检查票数
             if not self.check_ticket(con.raid_config.number_base):
@@ -298,7 +307,7 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, RealmRaidAssets):
         if base < 0 or base > 30:
             logger.warning(f'It is not a valid base {base}')
             base = 0
-        self.wait_until_appear(self.I_BACK_RED)
+        self.wait_until_appear(self.I_BACK_RED, wait_time=30)
         self.screenshot()
         cu, res, total = self.O_NUMBER.ocr(self.device.image)
 
@@ -411,6 +420,31 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, RealmRaidAssets):
             return True
         return False
 
+    def close_chest_reward(self, screenshot: bool=True) -> bool:
+        """
+        关闭三胜宝箱奖励弹窗（点击屏幕继续）
+        :return: 弹窗是否出现过
+        """
+        if screenshot:
+            self.screenshot()
+        if not (self.appear(self.I_RR_CHEST) or self.appear(self.I_SOUL_RAID)):
+            return False
+        logger.info('Three-win chest reward detected, click to close')
+        start_time = time.time()
+        while 1:
+            self.screenshot()
+            if not (self.appear(self.I_RR_CHEST) or self.appear(self.I_SOUL_RAID)):
+                logger.info('Chest reward closed')
+                return True
+            if time.time() - start_time > 30:
+                logger.warning('Chest reward still present after 30s, continue anyway')
+                return True
+            # 开启动画期间点击会被吞掉，福袋与“点击屏幕继续”位置轮流点击
+            if self.appear_then_click(self.I_RR_CHEST, interval=1):
+                continue
+            self.device.click(x=640, y=690)
+            time.sleep(0.5)
+
     def reward_detect_click(self, screenshot: bool=True) -> bool:
         """
         检测是否出现 每三次就有奖励的界面, 有就领取
@@ -419,7 +453,10 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, RealmRaidAssets):
         if screenshot:
             self.screenshot()
         # 由于更改识别顺序，退出战斗之后，需要先等待回到个人突破界面，即识别到红色退出按钮，再进行奖励判断
-        self.wait_until_appear(self.I_BACK_RED)
+        self.wait_until_appear(self.I_BACK_RED, wait_time=30)
+        # 三胜宝箱奖励弹窗（点击屏幕继续）：识别到就点击关闭，防止遮挡勋章导致点不到下一个
+        if self.close_chest_reward():
+            return True
         text = self.O_TEXT.ocr(self.device.image)
         # 识别突破卷区域，如果识别到了且其中含有文字，即有聊天框遮挡则进入循环，等待三胜奖励出现并点击，循环退出条件为识别到票（即*/*的形式）
         if text != "":
@@ -477,9 +514,12 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, RealmRaidAssets):
         :return:
         """
         retry_clean = 0
+        clean_start_time = time.time()
         while not self.appear(self.I_RR_PERSON):
             if retry_clean > 20:
                 logger.warning("Stuck too long, try force quit or random click")
+            if time.time() - clean_start_time > 90:
+                raise GameStuckError("RealmRaid fire: raid page title not found after 90s")
             
             logger.info("Title not found! Checking for popups or rewards...")
             
@@ -502,8 +542,14 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, RealmRaidAssets):
         click = self.partition[order - 1]
         
         # 进攻循环
+        attack_start_time = time.time()
         while 1:
             self.screenshot()
+            if time.time() - attack_start_time > 90:
+                raise GameStuckError("RealmRaid fire: cannot start battle after 90s")
+            # 三胜宝箱弹窗可能在开战前才弹出，优先点掉
+            if self.close_chest_reward(False):
+                continue
             
             # 双重保险：如果在进攻阶段又弹出了窗口，也把它关掉
             if self.appear(self.I_UI_CONFIRM):

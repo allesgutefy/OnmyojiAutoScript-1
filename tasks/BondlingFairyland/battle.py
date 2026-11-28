@@ -96,6 +96,9 @@ class BondlingBattle(GeneralBattle, BondlingFairylandAssets):
                 continue
             if self.appear_then_click(self.I_BATTLE_FAIL, threshold=0.6, interval=1):
                 continue
+            # 队员端新版结算画面：标题为「结束」（原为胜利/失败），点击位置不变
+            if self.appear_then_click(self.I_BATTLE_END, threshold=0.7, interval=1):
+                continue
             # 如果开启战斗过程随机滑动
             if random_click_swipt_enable:
                 self.random_click_swipt()
@@ -118,6 +121,9 @@ class BondlingBattle(GeneralBattle, BondlingFairylandAssets):
             if self.appear_then_click(self.I_BATTLE_FAIL_ABANDON, interval=1):
                 continue
             if self.appear_then_click(self.I_BATTLE_FAIL, threshold=0.6, interval=1):
+                continue
+            # 队员端新版结算画面：标题为「结束」（原为胜利/失败），点击位置不变
+            if self.appear_then_click(self.I_BATTLE_END, threshold=0.7, interval=1):
                 continue
             if not self.appear(self.I_REWARD):
                 break
